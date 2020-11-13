@@ -1,0 +1,44 @@
+from backtesting import Backtest, Strategy
+from backtesting.lib import crossover
+import pandas as pd
+from backtesting.test import SMA
+
+
+def _read_file(filename):
+    from os.path import dirname, join
+
+    return pd.read_csv(join(dirname(__file__), filename),
+                       index_col=0, parse_dates=True, infer_datetime_format=True)
+
+
+GOOG = _read_file('hs300.csv')
+
+
+class SmaCross(Strategy):
+    n1 = 10
+    n2 = 20
+    def init(self):
+        price = self.data.Close
+        self.ma1 = self.I(SMA, price, self.n1)
+        self.ma2 = self.I(SMA, price, self.n2)
+        # self.ma3 = self.I(SMA, price, 30)
+
+    def next(self):
+        if crossover(self.ma1, self.ma2):
+            self.buy()
+        elif crossover(self.ma2, self.ma1):
+            self.sell()
+
+
+bt = Backtest(GOOG, SmaCross, commission=.002,
+              exclusive_orders=True)
+
+# stats = bt.run()
+
+# 调节参数
+stats = bt.optimize(n1=range(2, 50, 5),
+                    n2=range(5, 100, 5),
+                    maximize='Equity Final [$]',
+                    constraint=lambda param: param.n1 < param.n2)
+print(stats)
+bt.plot()
